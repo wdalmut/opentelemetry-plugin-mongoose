@@ -1,0 +1,27 @@
+{
+  "name": "@wdalmut/opentelemetry-plugin-mongoose",
+  "version": "0.0.21",
+  "description": "",
+  "main": "lib/src/index.js",
+  "scripts": {
+    "test": "./node_modules/.bin/jasmine",
+    "build": "./node_modules/.bin/tsc",
+    "watch": "npm run build -- -w"
+  },
+  "author": "Walter Dal Mut <walter.dalmut@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@opentelemetry/api": "^0.6.0",
+    "@opentelemetry/context-async-hooks": "^0.6.0",
+    "@opentelemetry/core": "^0.6.0",
+    "@opentelemetry/node": "^0.6.0",
+    "@opentelemetry/tracing": "^0.6.0",
+    "@types/jasmine": "^3.5.10",
+    "@types/mongoose": "^5.7.8",
+    "@types/shimmer": "^1.0.1",
+    "jasmine": "^3.5.0",
+    "mongoose": "^5.9.7",
+    "shimmer": "^1.2.1",
+    "typescript": "^3.8.3"
+  }
+}
