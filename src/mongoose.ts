@@ -105,7 +105,6 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
             next()
           })
-
         }
 
         const returned = originalModel(... arguments)

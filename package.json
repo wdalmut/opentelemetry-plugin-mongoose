@@ -5,7 +5,7 @@
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
   "scripts": {
-    "test": "./node_modules/.bin/jasmine",
+    "test": "node --no-deprecation ./node_modules/jasmine/bin/jasmine.js",
     "build": "./node_modules/.bin/tsc",
     "watch": "npm run build -- -w"
   },
