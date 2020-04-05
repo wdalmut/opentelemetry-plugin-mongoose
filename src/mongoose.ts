@@ -2,7 +2,7 @@ import { BasePlugin } from '@opentelemetry/core';
 import { CanonicalCode, Span, SpanKind } from '@opentelemetry/api';
 import * as shimmer from 'shimmer';
 import { AttributeNames } from './enums';
-import mongoose, { Schema, Document, Model, Query, Error } from 'mongoose';
+import mongoose, { Schema, Document, Model, Query } from 'mongoose';
 import mongodb from 'mongodb'
 import { middlewares } from './middleware';
 
@@ -36,17 +36,16 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
         for (let middleware of middlewares) {
           schema.pre(middleware, function() {
-            // @ts-ignore
-            let collection = this.collection.name
-
             thisPlugin._logger.debug('MongoosePlugin: pre mongoose query');
-            // @ts-ignore
+
             let span = thisPlugin._tracer.startSpan(`mongoose.${name}.${middleware}`, {
               kind: SpanKind.CLIENT,
               attributes: {
-                collection,
-                model: name,
-                query: middleware,
+                // TODO: Add collection and database name and connection information
+                [AttributeNames.DB_MODEL_NAME]: name,
+                [AttributeNames.DB_QUERY_TYPE]: middleware,
+                [AttributeNames.DB_TYPE]: 'nosql',
+                [AttributeNames.COMPONENT]: 'mongoose',
               },
             });
 
@@ -61,7 +60,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
           })
 
           // handle normal operations
-          schema.post(middleware, function (doc: T) {
+          schema.post(middleware, function (doc: T, next: Function) {
             thisPlugin._logger.debug('MongoosePlugin: post mongoose query');
 
             // @ts-ignore
@@ -69,16 +68,18 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
             if (!span) {
               thisPlugin._logger.debug('MongoosePlugin: There is no span in place...');
-              return;
+              return next();
             }
 
             span.setStatus({
               code: CanonicalCode.OK,
             });
 
-            span.setAttribute('doc', JSON.stringify(doc));
+            span.setAttribute(AttributeNames.DB_MODEL, JSON.stringify(doc));
 
             span.end();
+
+            return next()
           })
 
           // handle error conditions

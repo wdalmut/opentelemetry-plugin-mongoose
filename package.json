@@ -1,19 +1,45 @@
 {
   "name": "@wdalmut/opentelemetry-plugin-mongoose",
   "version": "0.0.21",
-  "description": "",
+  "description": "OpenTelemetry mongoose automatic instrumentation package.",
   "main": "lib/src/index.js",
+  "types": "lib/src/index.d.ts",
   "scripts": {
     "test": "./node_modules/.bin/jasmine",
     "build": "./node_modules/.bin/tsc",
     "watch": "npm run build -- -w"
   },
+  "files": [
+    "lib/**/*.js",
+    "lib/**/*.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": "wdalmut/opentelemetry-plugin-mongoose",
   "author": "Walter Dal Mut <walter.dalmut@gmail.com>",
   "license": "MIT",
-  "devDependencies": {
+    "keywords": [
+    "opentelemetry",
+    "mongoose",
+    "mongodb",
+    "nodejs",
+    "tracing",
+    "profiling",
+    "plugin"
+  ],
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "dependencies": {
     "@opentelemetry/api": "^0.6.0",
-    "@opentelemetry/context-async-hooks": "^0.6.0",
     "@opentelemetry/core": "^0.6.0",
+    "shimmer": "^1.2.1"
+  },
+  "devDependencies": {
+    "@opentelemetry/context-async-hooks": "^0.6.0",
     "@opentelemetry/node": "^0.6.0",
     "@opentelemetry/tracing": "^0.6.0",
     "@types/jasmine": "^3.5.10",
@@ -21,7 +47,6 @@
     "@types/shimmer": "^1.0.1",
     "jasmine": "^3.5.0",
     "mongoose": "^5.9.7",
-    "shimmer": "^1.2.1",
     "typescript": "^3.8.3"
   }
 }

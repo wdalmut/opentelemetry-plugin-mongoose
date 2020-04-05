@@ -2,6 +2,14 @@
 
 Just a mongoose plugin for opentelemetry
 
+## Installation
+
+```sh
+npm install --save @wdalmut/opentelemetry-plugin-mongoose
+```
+
+## Usage
+
 ```js
 const provider = new NodeTracerProvider({
   plugins: {
