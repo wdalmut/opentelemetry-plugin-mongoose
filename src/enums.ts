@@ -2,6 +2,8 @@
 export enum AttributeNames {
   COMPONENT = 'component',
   DB_TYPE = 'db.type',
+  DB_NAME = 'db.name',
+  COLLECTION_NAME = 'db.collection',
   DB_STATEMENT = 'db.statement',
   DB_OPTIONS = 'db.options',
   DB_UPDATE = 'db.updates',

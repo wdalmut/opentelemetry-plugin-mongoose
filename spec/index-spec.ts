@@ -4,6 +4,7 @@ import { MongoosePlugin, plugin } from '../src';
 import { AttributeNames } from '../src/enums';
 import { NoopLogger } from '@opentelemetry/core';
 import { NodeTracerProvider } from '@opentelemetry/node';
+import { CanonicalCode } from '@opentelemetry/api';
 
 import mongoose from 'mongoose';
 
@@ -103,13 +104,14 @@ describe("mongoose opentelemetry plugin", () => {
       }).then((user) => {
         const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
 
+        expect(spans.length).toBe(1)
         assertSpan(spans[0])
+
+        expect(spans[0].status.code).toEqual(CanonicalCode.OK)
 
         expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch('')
         expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
         expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('save')
-
-        expect(spans[0].attributes[AttributeNames.DB_MODEL]).toEqual(JSON.stringify(user.toJSON()))
 
         done()
       })
@@ -135,6 +137,8 @@ describe("mongoose opentelemetry plugin", () => {
 
         assertSpan(spans[0])
 
+        expect(spans[0].status.code).toEqual(CanonicalCode.UNKNOWN)
+
         expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch('')
         expect(spans[0].attributes[AttributeNames.MONGO_ERROR_CODE]).toEqual(11000)
         expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
@@ -156,15 +160,61 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"id":"_test"}')
-            expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toBe(null)
 
             done()
           })
       })
     })
 
-    it('instrumenting remove operation [deprecated]', async(done) => {
+    it("instrumenting multiple find operations", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        Promise.all([User.find({id: "_test1"}), User.find({id: "_test2"})])
+          .then((users) => {
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            expect(spans.length).toBe(2)
+
+            assertSpan(spans[0])
+            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
+
+            expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch(/^{"id":"_test[1-2]"}$/g)
+
+            assertSpan(spans[1])
+            expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
+
+            expect(spans[1].attributes[AttributeNames.DB_STATEMENT]).toMatch(/^{"id":"_test[1-2]"}$/g)
+
+            done()
+          })
+      })
+    })
+
+    it("instrumenting find operation with chaining structures", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        User
+          .find({id: "_test"})
+          .skip(1)
+          .limit(2)
+          .sort({email: 'asc'})
+          .then((users) => {
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            assertSpan(spans[0])
+            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
+
+            expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"id":"_test"}')
+
+            done()
+          })
+      })
+    })
+
+    xit('instrumenting remove operation [deprecated]', async(done) => {
       const span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(span, () => {
         User.findOne({email: 'john.doe@example.com'})
@@ -197,7 +247,7 @@ describe("mongoose opentelemetry plugin", () => {
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toBe(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toBe(undefined)
             done()
           })
       })
@@ -215,7 +265,6 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('updateOne')
 
             expect(spans[1].attributes[AttributeNames.DB_STATEMENT]).toMatch(/{"_id":"\w+"}/)
-            expect(spans[1].attributes[AttributeNames.DB_MODEL]).toEqual('{"n":1,"nModified":1,"ok":1}')
             expect(spans[1].attributes[AttributeNames.DB_OPTIONS]).toEqual('{"w":1}')
             expect(spans[1].attributes[AttributeNames.DB_UPDATE]).toEqual('{"$inc":{"age":1}}')
             done()
@@ -234,7 +283,6 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('updateOne')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
-            expect(spans[0].attributes[AttributeNames.DB_MODEL]).toEqual('{"n":1,"nModified":1,"ok":1}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
             expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual('{"$inc":{"age":1}}')
             done()
@@ -253,9 +301,8 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('deleteOne')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
-            expect(spans[0].attributes[AttributeNames.DB_MODEL]).toEqual('{"n":1,"ok":1,"deletedCount":1}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
             done()
           })
       })
@@ -272,9 +319,8 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('count')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_MODEL]).toEqual('3')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
             done()
           })
       })
@@ -287,13 +333,14 @@ describe("mongoose opentelemetry plugin", () => {
           .then(users => {
             const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
 
+            expect(spans.length).toBe(1)
+
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('countDocuments')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_MODEL]).toEqual('3')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
             done()
           })
       })
@@ -306,13 +353,14 @@ describe("mongoose opentelemetry plugin", () => {
           .then(users => {
             const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
 
+            expect(spans.length).toBe(1)
+
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('estimatedDocumentCount')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_MODEL]).toEqual('3')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
             done()
           })
       })
@@ -329,9 +377,8 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('deleteMany')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_MODEL]).toEqual('{"n":3,"ok":1,"deletedCount":3}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
             done()
           })
       })
@@ -349,9 +396,8 @@ describe("mongoose opentelemetry plugin", () => {
 
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch('{"email":"john.doe@example.com"}')
-            expect(spans[0].attributes[AttributeNames.DB_MODEL]).toMatch(/\{"_id":"\w+","firstName":"John","lastName":"Doe","email":"john.doe@example.com","age":18,"__v":0\}/)
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
             done()
           })
       })
@@ -408,7 +454,7 @@ describe("mongoose opentelemetry plugin", () => {
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(null)
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
             done()
           })
       })
@@ -418,7 +464,7 @@ describe("mongoose opentelemetry plugin", () => {
      * With the current strategy (usign pre-post hooks) it is impossible to
      * create a valid instrumenting library
      */
-    xit(`instrumenting findOneAndUpdate operation`, async(done) => {
+    it(`instrumenting findOneAndUpdate operation`, async(done) => {
       const span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(span, () => {
         User.findOneAndUpdate({ email: "john.doe@example.com" }, { isUpdated: true } )
@@ -426,12 +472,12 @@ describe("mongoose opentelemetry plugin", () => {
             const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
 
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
-            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOne')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOneAndUpdate')
 
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual('{}')
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual('{"isUpdated":true}')
 
             done()
           })
