@@ -214,7 +214,7 @@ describe("mongoose opentelemetry plugin", () => {
       })
     })
 
-    xit('instrumenting remove operation [deprecated]', async(done) => {
+    it('instrumenting remove operation [deprecated]', async(done) => {
       const span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(span, () => {
         User.findOne({email: 'john.doe@example.com'})
@@ -226,7 +226,6 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('remove')
 
-            expect(spans[1].attributes[AttributeNames.DB_MODEL]).toEqual(JSON.stringify(user!.toJSON()))
             done()
           })
       })

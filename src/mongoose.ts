@@ -61,6 +61,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         let m = mongoose.model(name)
 
         shimmer.wrap(m.prototype, 'save', thisPlugin.patchSave(name, m.collection))
+        shimmer.wrap(m.prototype, 'remove', thisPlugin.patchRemove(name, m.collection))
 
         return returned;
       }
@@ -79,6 +80,24 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         span.setAttribute(AttributeNames.COLLECTION_NAME, collection.name)
 
         return originalSave.apply(this, arguments)
+          .catch(handleError(span))
+          .finally(() => span.end() )
+      }
+    }
+  }
+
+  private patchRemove(name: string, collection: Collection) {
+    const thisPlugin = this
+    thisPlugin._logger.debug('MongoosePlugin: patched mongoose remove prototype');
+    return (originalRemove: Function) => {
+      return function remove(this: any) {
+        let span = startSpan(thisPlugin._tracer, name, 'remove');
+
+        span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'remove')
+        span.setAttribute(AttributeNames.DB_NAME, collection.conn.name)
+        span.setAttribute(AttributeNames.COLLECTION_NAME, collection.name)
+
+        return originalRemove.apply(this, arguments)
           .catch(handleError(span))
           .finally(() => span.end() )
       }
