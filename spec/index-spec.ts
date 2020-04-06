@@ -375,7 +375,6 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOne')
 
-
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
             expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
@@ -393,7 +392,6 @@ describe("mongoose opentelemetry plugin", () => {
 
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('update')
-
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
@@ -413,7 +411,6 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('updateMany')
 
-
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"age":18}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
             expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual('{"isDeleted":true}')
@@ -429,9 +426,10 @@ describe("mongoose opentelemetry plugin", () => {
           .then(() => {
             const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
 
+            expect(spans.length).toBe(1)
+
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOneAndDelete')
-
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
@@ -448,13 +446,14 @@ describe("mongoose opentelemetry plugin", () => {
           .then(() => {
             const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
 
-            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
-            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOneAndUpdate')
+            expect(spans.length).toBe(2)
 
+            expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOneAndUpdate')
 
-            expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
-            expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual('{"isUpdated":true}')
+            expect(spans[1].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
+            expect(spans[1].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
+            expect(spans[1].attributes[AttributeNames.DB_UPDATE]).toEqual('{"isUpdated":true}')
 
             done()
           })
@@ -468,9 +467,10 @@ describe("mongoose opentelemetry plugin", () => {
           .then(() => {
             const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
 
+            expect(spans.length).toBe(1)
+
             expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOneAndRemove')
-
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
