@@ -1,6 +1,6 @@
 import { BasePlugin } from '@opentelemetry/core';
 import * as shimmer from 'shimmer';
-import mongoose, { Schema, Document, Model, Collection } from 'mongoose';
+import mongoose from 'mongoose';
 
 import { AttributeNames } from './enums'
 
@@ -17,9 +17,9 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     if (this._moduleExports) {
       this._logger.debug('MongoosePlugin: patch mongoose plugin');
 
-      shimmer.wrap(this._moduleExports, 'model', this.patchModel());
+      shimmer.wrap(this._moduleExports.Model.prototype, 'save', this.patchSave());
+      shimmer.wrap(this._moduleExports.Model.prototype, 'remove', this.patchRemove());
       shimmer.wrap(this._moduleExports.Query.prototype, 'exec', this.patchQueryExec());
-      shimmer.wrap(this._moduleExports.Mongoose.prototype, 'model', this.patchModel());
     }
     return this._moduleExports;
   }
@@ -46,38 +46,16 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     }
   }
 
-  private patchModel() {
-    const thisPlugin = this
-    thisPlugin._logger.debug('MongoosePlugin: patched mongoose model');
-    return (originalModel: Function) => {
-      return function model<T extends Document>(name: string, schema?: Schema, collection?: string, skipInit?: boolean): Model<T> {
-        if (!schema) {
-          const returned = originalModel(...arguments)
-          return returned;
-        }
-
-        const returned = originalModel(... arguments)
-
-        let m = mongoose.model(name)
-
-        shimmer.wrap(m.prototype, 'save', thisPlugin.patchSave(name, m.collection))
-        shimmer.wrap(m.prototype, 'remove', thisPlugin.patchRemove(name, m.collection))
-
-        return returned;
-      }
-    }
-  }
-
-  private patchSave(name: string, collection: Collection) {
+  private patchSave() {
     const thisPlugin = this
     thisPlugin._logger.debug('MongoosePlugin: patched mongoose save prototype');
     return (originalSave: Function) => {
       return function save(this: any) {
-        let span = startSpan(thisPlugin._tracer, name, 'save');
+        let span = startSpan(thisPlugin._tracer, this.constructor.modelName, 'save');
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'save')
-        span.setAttribute(AttributeNames.DB_NAME, collection.conn.name)
-        span.setAttribute(AttributeNames.COLLECTION_NAME, collection.name)
+        span.setAttribute(AttributeNames.DB_NAME, this.constructor.collection.conn.name)
+        span.setAttribute(AttributeNames.COLLECTION_NAME, this.constructor.collection.name)
 
         return originalSave.apply(this, arguments)
           .catch(handleError(span))
@@ -86,16 +64,16 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     }
   }
 
-  private patchRemove(name: string, collection: Collection) {
+  private patchRemove() {
     const thisPlugin = this
     thisPlugin._logger.debug('MongoosePlugin: patched mongoose remove prototype');
     return (originalRemove: Function) => {
       return function remove(this: any) {
-        let span = startSpan(thisPlugin._tracer, name, 'remove');
+        let span = startSpan(thisPlugin._tracer, this.constructor.modelName, 'remove');
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'remove')
-        span.setAttribute(AttributeNames.DB_NAME, collection.conn.name)
-        span.setAttribute(AttributeNames.COLLECTION_NAME, collection.name)
+        span.setAttribute(AttributeNames.DB_NAME, this.constructor.collection.conn.name)
+        span.setAttribute(AttributeNames.COLLECTION_NAME, this.constructor.collection.name)
 
         return originalRemove.apply(this, arguments)
           .catch(handleError(span))
@@ -106,8 +84,9 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
   protected unpatch(): void {
     this._logger.debug('MongoosePlugin: unpatch mongoose plugin');
-    shimmer.unwrap(this._moduleExports, 'model')
-    shimmer.unwrap(this._moduleExports.Mongoose.prototype, 'model')
+    shimmer.unwrap(this._moduleExports.Model.prototype, 'save')
+    shimmer.unwrap(this._moduleExports.Model.prototype, 'remove')
+    shimmer.unwrap(this._moduleExports.Query.prototype, 'exec')
   }
 }
 
