@@ -31,8 +31,12 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
       return function exec(this: any) {
         let span = startSpan(thisPlugin._tracer, this.model.modelName, this.op);
 
-        span.setAttribute(AttributeNames.DB_NAME, this.mongooseCollection.conn.name)
         span.setAttribute(AttributeNames.COLLECTION_NAME, this.collection.name)
+
+        span.setAttribute(AttributeNames.DB_NAME, this.mongooseCollection.conn.name)
+        span.setAttribute(AttributeNames.DB_HOST, this.mongooseCollection.conn.host)
+        span.setAttribute(AttributeNames.DB_PORT, this.mongooseCollection.conn.port)
+        span.setAttribute(AttributeNames.DB_USER, this.mongooseCollection.conn.user)
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, this.op)
         span.setAttribute(AttributeNames.DB_STATEMENT, JSON.stringify(this._conditions))
@@ -40,8 +44,15 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         span.setAttribute(AttributeNames.DB_UPDATE, JSON.stringify(this._update))
 
         const queryResponse = originalExec.apply(this, arguments)
-        span.end()
+
+        if (!(queryResponse instanceof Promise)) {
+          span.end()
+          return queryResponse
+        }
+
         return queryResponse
+          .catch(handleError(span))
+          .finally(() => span.end() )
       }
     }
   }
@@ -54,7 +65,12 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         let span = startSpan(thisPlugin._tracer, this.constructor.modelName, 'save');
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'save')
+
         span.setAttribute(AttributeNames.DB_NAME, this.constructor.collection.conn.name)
+        span.setAttribute(AttributeNames.DB_HOST, this.constructor.collection.conn.host)
+        span.setAttribute(AttributeNames.DB_PORT, this.constructor.collection.conn.port)
+        span.setAttribute(AttributeNames.DB_USER, this.constructor.collection.conn.user)
+
         span.setAttribute(AttributeNames.COLLECTION_NAME, this.constructor.collection.name)
 
         return originalSave.apply(this, arguments)
@@ -72,7 +88,12 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         let span = startSpan(thisPlugin._tracer, this.constructor.modelName, 'remove');
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'remove')
+
         span.setAttribute(AttributeNames.DB_NAME, this.constructor.collection.conn.name)
+        span.setAttribute(AttributeNames.DB_HOST, this.constructor.collection.conn.host)
+        span.setAttribute(AttributeNames.DB_PORT, this.constructor.collection.conn.port)
+        span.setAttribute(AttributeNames.DB_USER, this.constructor.collection.conn.user)
+
         span.setAttribute(AttributeNames.COLLECTION_NAME, this.constructor.collection.name)
 
         return originalRemove.apply(this, arguments)
