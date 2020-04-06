@@ -289,24 +289,6 @@ describe("mongoose opentelemetry plugin", () => {
       })
     })
 
-    it('instrumenting deleteOne operation', async(done) => {
-      const span = provider.getTracer('default').startSpan('test span');
-      provider.getTracer('default').withSpan(span, () => {
-        User.deleteOne({ email: 'john.doe@example.com' })
-          .then(user => {
-            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
-
-            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
-            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('deleteOne')
-
-            expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
-            expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
-            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
-            done()
-          })
-      })
-    })
-
     it('instrumenting count operation [deprecated]', async(done) => {
       const span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(span, () => {
@@ -459,10 +441,6 @@ describe("mongoose opentelemetry plugin", () => {
       })
     })
 
-    /**
-     * With the current strategy (usign pre-post hooks) it is impossible to
-     * create a valid instrumenting library
-     */
     it(`instrumenting findOneAndUpdate operation`, async(done) => {
       const span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(span, () => {
@@ -477,6 +455,26 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
             expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
             expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual('{"isUpdated":true}')
+
+            done()
+          })
+      })
+    })
+
+    it(`instrumenting findOneAndRemove operation`, async(done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        User.findOneAndRemove({ email: "john.doe@example.com" } )
+          .then(() => {
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOneAndRemove')
+
+
+            expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"email":"john.doe@example.com"}')
+            expect(spans[0].attributes[AttributeNames.DB_OPTIONS]).toEqual('{}')
+            expect(spans[0].attributes[AttributeNames.DB_UPDATE]).toEqual(undefined)
 
             done()
           })
