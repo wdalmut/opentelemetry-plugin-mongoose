@@ -31,7 +31,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
       return function exec(this: any) {
         let span = startSpan(thisPlugin._tracer, this.model.modelName, this.op);
 
-        span.setAttribute(AttributeNames.COLLECTION_NAME, this.collection.name)
+        span.setAttribute(AttributeNames.COLLECTION_NAME, this.mongooseCollection.name)
 
         span.setAttribute(AttributeNames.DB_NAME, this.mongooseCollection.conn.name)
         span.setAttribute(AttributeNames.DB_HOST, this.mongooseCollection.conn.host)
