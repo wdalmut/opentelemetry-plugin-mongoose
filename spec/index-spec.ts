@@ -603,5 +603,41 @@ describe("mongoose opentelemetry plugin", () => {
           })
       })
     })
+
+    it("instrumenting combined operation with Promise.all", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        Promise.all([
+          User
+          .find({id: "_test"})
+          .skip(1)
+          .limit(2)
+          .sort({email: 'asc'}),
+          User.countDocuments()
+        ])
+          .then((users) => {
+            // close the root span
+            span.end()
+
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            // same traceId assertion
+            expect([...new Set(spans.map((span: ReadableSpan) => span.spanContext.traceId))].length).toBe(1)
+
+            expect(spans.length).toBe(3)
+
+            assertSpan(spans[0])
+            assertSpan(spans[1])
+
+            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toMatch(/^(find|countDocuments)$/g)
+
+            expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toMatch(/^(find|countDocuments)$/g)
+
+            done()
+          })
+      })
+    })
   })
 });
