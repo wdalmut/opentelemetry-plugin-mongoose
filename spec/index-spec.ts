@@ -480,5 +480,26 @@ describe("mongoose opentelemetry plugin", () => {
           })
       })
     })
+
+    it(`instrumenting create operation`, async(done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        User.create({ firstName: 'John', lastName: 'Doe', email: "john.doe+1@example.com" } )
+          .then(() => {
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            expect(spans.length).toBe(1)
+            assertSpan(spans[0])
+
+            expect(spans[0].status.code).toEqual(CanonicalCode.OK)
+
+            expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch('')
+            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('save')
+
+            done()
+          })
+      })
+    })
   })
 });

@@ -15,15 +15,23 @@ export function startSpan(tracer: Tracer, name: string, op: string): Span {
 }
 
 export function handleError(span: Span) {
-  return function(error: MongoError): Promise<MongoError> {
-    span.setAttribute(AttributeNames.MONGO_ERROR_CODE, error.code);
+  return function(error: MongoError|Error): Promise<MongoError> {
 
-    span.setStatus({
-      code: CanonicalCode.UNKNOWN,
-      message: error.message,
-    });
+    if (error instanceof MongoError) {
+      span.setAttribute(AttributeNames.MONGO_ERROR_CODE, error.code);
+    }
+
+    setErrorStatus(span, error)
 
     return Promise.reject(error)
   }
 }
 
+export function setErrorStatus(span: Span, error: Error): Span {
+  span.setStatus({
+    code: CanonicalCode.UNKNOWN,
+    message: error.message,
+  });
+
+  return span
+}

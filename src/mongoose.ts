@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 import { AttributeNames } from './enums'
 
-import { startSpan, handleError } from './utils'
+import { startSpan, handleError, setErrorStatus } from './utils'
 
 import { VERSION } from './version'
 
@@ -61,7 +61,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     const thisPlugin = this
     thisPlugin._logger.debug('MongoosePlugin: patched mongoose save prototype');
     return (originalSave: Function) => {
-      return function save(this: any) {
+      return function save(this: any, options?: any, fn?: Function) {
         let span = startSpan(thisPlugin._tracer, this.constructor.modelName, 'save');
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'save')
@@ -73,9 +73,24 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
         span.setAttribute(AttributeNames.COLLECTION_NAME, this.constructor.collection.name)
 
-        return originalSave.apply(this, arguments)
-          .catch(handleError(span))
-          .finally(() => span.end() )
+        if (options instanceof Function) {
+          fn = options
+          options = undefined
+        }
+
+        if (fn instanceof Function) {
+          return originalSave.apply(this, [options, (err: Error, product: any) => {
+            if (err) {
+              setErrorStatus(span, err)
+            }
+            span.end()
+            return fn!(err, product)
+          }])
+        } else {
+          return originalSave.apply(this, arguments)
+            .catch(handleError(span))
+            .finally(() => span.end() )
+        }
       }
     }
   }
