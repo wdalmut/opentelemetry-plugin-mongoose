@@ -144,6 +144,8 @@ describe("mongoose opentelemetry plugin", () => {
         expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
         expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('save')
 
+        expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
         done()
       })
     })
@@ -160,6 +162,8 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"id":"_test"}')
+
+            expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
 
             done()
           })
@@ -181,11 +185,15 @@ describe("mongoose opentelemetry plugin", () => {
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch(/^{"id":"_test[1-2]"}$/g)
 
+            expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
             assertSpan(spans[1])
             expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
 
             expect(spans[1].attributes[AttributeNames.DB_STATEMENT]).toMatch(/^{"id":"_test[1-2]"}$/g)
+
+            expect(spans[1].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
 
             done()
           })
@@ -209,6 +217,8 @@ describe("mongoose opentelemetry plugin", () => {
 
             expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toEqual('{"id":"_test"}')
 
+            expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
             done()
           })
       })
@@ -225,6 +235,8 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[1].attributes[AttributeNames.DB_STATEMENT]).toMatch('')
             expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
             expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('remove')
+
+            expect(spans[1].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
 
             done()
           })
@@ -266,6 +278,9 @@ describe("mongoose opentelemetry plugin", () => {
             expect(spans[1].attributes[AttributeNames.DB_STATEMENT]).toMatch(/{"_id":"\w+"}/)
             expect(spans[1].attributes[AttributeNames.DB_OPTIONS]).toEqual('{"w":1}')
             expect(spans[1].attributes[AttributeNames.DB_UPDATE]).toEqual('{"$inc":{"age":1}}')
+
+            expect(spans[1].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
             done()
           })
       })
