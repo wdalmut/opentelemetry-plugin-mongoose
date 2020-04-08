@@ -1,5 +1,7 @@
 # OpenTelemetry Mongoose Plugin
 
+[![Build Status](https://travis-ci.org/wdalmut/opentelemetry-plugin-mongoose.svg?branch=master)](https://travis-ci.org/wdalmut/opentelemetry-plugin-mongoose)
+
 Just a mongoose plugin for opentelemetry
 
 ## Installation
