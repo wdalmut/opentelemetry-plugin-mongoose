@@ -4,8 +4,7 @@
   ],
   "exclude": [
     "**/*.d.ts",
-    "lib/**/**/*.js",
-    "src/*.ts"
+    "spec/**/*.ts"
   ],
   "all": true
 }
