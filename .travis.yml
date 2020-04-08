@@ -1,0 +1,10 @@
+language: node_js
+node_js:
+  - "node"
+  - "lts/*"
+service:
+  - mongodb
+script:
+  - npm i
+  - npm run build
+  - npm test
