@@ -16,7 +16,6 @@ export function startSpan(tracer: Tracer, name: string, op: string): Span {
 
 export function handleError(span: Span) {
   return function(error: MongoError|Error): Promise<MongoError> {
-
     if (error instanceof MongoError) {
       span.setAttribute(AttributeNames.MONGO_ERROR_CODE, error.code);
     }
@@ -27,7 +26,11 @@ export function handleError(span: Span) {
   }
 }
 
-export function setErrorStatus(span: Span, error: Error): Span {
+export function setErrorStatus(span: Span, error: MongoError|Error): Span {
+  if (error instanceof MongoError) {
+    span.setAttribute(AttributeNames.MONGO_ERROR_CODE, error.code);
+  }
+
   span.setStatus({
     code: CanonicalCode.UNKNOWN,
     message: error.message,

@@ -117,6 +117,37 @@ describe("mongoose opentelemetry plugin", () => {
       })
     })
 
+    it("instrumenting save operation with callback", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        const user: IUser = new User({
+          firstName: 'Test first name',
+          lastName: 'Test last name',
+          email: 'test@example.com'
+        });
+
+        user.save(function(err) {
+          if (err) {
+            fail(err)
+            return done()
+          }
+
+          const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+          expect(spans.length).toBe(1)
+          assertSpan(spans[0])
+
+          expect(spans[0].status.code).toEqual(CanonicalCode.OK)
+
+          expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch('')
+          expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+          expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('save')
+
+          done()
+        })
+      })
+    })
+
     it("instrumenting error on save operation", async (done) => {
       const span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(span, () => {
@@ -147,6 +178,41 @@ describe("mongoose opentelemetry plugin", () => {
         expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
 
         done()
+      })
+    })
+
+    it("instrumenting error on save operation with callbacks", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        const user: IUser = new User({
+          firstName: 'Test first name',
+          lastName: 'Test last name',
+          email: 'john.doe@example.com'
+        });
+
+        user.save(function(err) {
+          if (err) {
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            expect(spans.length).toBe(1)
+
+            assertSpan(spans[0])
+
+            expect(spans[0].status.code).toEqual(CanonicalCode.UNKNOWN)
+
+            expect(spans[0].attributes[AttributeNames.DB_STATEMENT]).toMatch('')
+            expect(spans[0].attributes[AttributeNames.MONGO_ERROR_CODE]).toEqual(11000)
+            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('save')
+
+            expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
+            return done()
+          }
+
+          fail(new Error("should not be possible"))
+          done()
+        })
       })
     })
 
