@@ -14,13 +14,11 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
   }
 
   protected patch() {
-    if (this._moduleExports) {
-      this._logger.debug('MongoosePlugin: patch mongoose plugin');
+    this._logger.debug('MongoosePlugin: patch mongoose plugin');
 
-      shimmer.wrap(this._moduleExports.Model.prototype, 'save', this.patchSave());
-      shimmer.wrap(this._moduleExports.Model.prototype, 'remove', this.patchRemove());
-      shimmer.wrap(this._moduleExports.Query.prototype, 'exec', this.patchQueryExec());
-    }
+    shimmer.wrap(this._moduleExports.Model.prototype, 'save', this.patchSave());
+    shimmer.wrap(this._moduleExports.Model.prototype, 'remove', this.patchRemove());
+    shimmer.wrap(this._moduleExports.Query.prototype, 'exec', this.patchQueryExec());
     return this._moduleExports;
   }
 
