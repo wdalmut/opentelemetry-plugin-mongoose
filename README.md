@@ -1,6 +1,7 @@
 # OpenTelemetry Mongoose Plugin
 
 [![Build Status](https://travis-ci.org/wdalmut/opentelemetry-plugin-mongoose.svg?branch=master)](https://travis-ci.org/wdalmut/opentelemetry-plugin-mongoose)
+[![codecov](https://codecov.io/gh/wdalmut/opentelemetry-plugin-mongoose/branch/master/graph/badge.svg)](https://codecov.io/gh/wdalmut/opentelemetry-plugin-mongoose)
 [![npm version](https://badge.fury.io/js/%40wdalmut%2Fopentelemetry-plugin-mongoose.svg)](https://badge.fury.io/js/%40wdalmut%2Fopentelemetry-plugin-mongoose)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
