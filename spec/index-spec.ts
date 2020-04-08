@@ -243,6 +243,27 @@ describe("mongoose opentelemetry plugin", () => {
       })
     })
 
+    it('instrumenting remove operation with callbacks [deprecated]', async(done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, async () => {
+        const user = await User.findOne({email: 'john.doe@example.com'})
+        user!.remove((error: Error|null, user: any) => {
+          expect(error).toBe(null)
+          expect(user).not.toBe(null)
+
+          const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+          expect(spans[1].attributes[AttributeNames.DB_STATEMENT]).toMatch('')
+          expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+          expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('remove')
+
+          expect(spans[1].attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
+          done()
+        })
+      })
+    })
+
     it('instrumenting deleteOne operation', async(done) => {
       const span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(span, () => {
