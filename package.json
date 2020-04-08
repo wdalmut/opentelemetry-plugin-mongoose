@@ -7,7 +7,9 @@
   "scripts": {
     "test": "node --no-deprecation ./node_modules/jasmine/bin/jasmine.js",
     "build": "./node_modules/.bin/tsc",
-    "watch": "npm run build -- -w"
+    "watch": "npm run build -- -w",
+    "coverage": "./node_modules/.bin/nyc npm test",
+    "report": "./node_modules/.bin/nyc report --reporter=text-lcov > coverage.lcov"
   },
   "files": [
     "lib/**/*.js",
@@ -21,7 +23,7 @@
   "repository": "wdalmut/opentelemetry-plugin-mongoose",
   "author": "Walter Dal Mut <walter.dalmut@gmail.com>",
   "license": "MIT",
-    "keywords": [
+  "keywords": [
     "opentelemetry",
     "mongoose",
     "mongodb",
@@ -47,6 +49,7 @@
     "@types/shimmer": "^1.0.1",
     "jasmine": "^3.5.0",
     "mongoose": "^5.9.7",
+    "nyc": "^15.0.1",
     "typescript": "^3.8.3"
   }
 }

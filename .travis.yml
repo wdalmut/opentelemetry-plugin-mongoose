@@ -5,6 +5,10 @@ node_js:
 service:
   - mongodb
 script:
+  - npm install codecov -g
   - npm i
   - npm run build
-  - npm test
+  - npm run coverage
+  - npm run report
+after_success:
+  - codecov
