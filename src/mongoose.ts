@@ -16,8 +16,8 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
   protected patch() {
     this._logger.debug('MongoosePlugin: patch mongoose plugin');
 
-    shimmer.wrap(this._moduleExports.Model.prototype, 'save', this.patchSave());
-    shimmer.wrap(this._moduleExports.Model.prototype, 'remove', this.patchRemove());
+    shimmer.wrap(this._moduleExports.Model.prototype, 'save', this.patchOnModelMethods('save'));
+    shimmer.wrap(this._moduleExports.Model.prototype, 'remove', this.patchOnModelMethods('remove'));
     shimmer.wrap(this._moduleExports.Query.prototype, 'exec', this.patchQueryExec());
     return this._moduleExports;
   }
@@ -55,14 +55,14 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     }
   }
 
-  private patchSave() {
+  private patchOnModelMethods(op: string) {
     const thisPlugin = this
-    thisPlugin._logger.debug('MongoosePlugin: patched mongoose save prototype');
-    return (originalSave: Function) => {
-      return function save(this: any, options?: any, fn?: Function) {
-        let span = startSpan(thisPlugin._tracer, this.constructor.modelName, 'save');
+    thisPlugin._logger.debug(`MongoosePlugin: patched mongoose ${op} prototype`);
+    return (originalOnModelFunction: Function) => {
+      return function method(this: any, options?: any, fn?: Function) {
+        let span = startSpan(thisPlugin._tracer, this.constructor.modelName, op);
 
-        span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'save')
+        span.setAttribute(AttributeNames.DB_QUERY_TYPE, op)
 
         span.setAttribute(AttributeNames.DB_NAME, this.constructor.collection.conn.name)
         span.setAttribute(AttributeNames.DB_HOST, this.constructor.collection.conn.host)
@@ -77,7 +77,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         }
 
         if (fn instanceof Function) {
-          return originalSave.apply(this, [options, (err: Error, product: any) => {
+          return originalOnModelFunction.apply(this, [options, (err: Error, product: any) => {
             if (err) {
               setErrorStatus(span, err)
             }
@@ -85,45 +85,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
             return fn!(err, product)
           }])
         } else {
-          return originalSave.apply(this, arguments)
-            .catch(handleError(span))
-            .finally(() => span.end() )
-        }
-      }
-    }
-  }
-
-  private patchRemove() {
-    const thisPlugin = this
-    thisPlugin._logger.debug('MongoosePlugin: patched mongoose remove prototype');
-    return (originalRemove: Function) => {
-      return function remove(this: any, options?: any, fn?: Function) {
-        let span = startSpan(thisPlugin._tracer, this.constructor.modelName, 'remove');
-
-        span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'remove')
-
-        span.setAttribute(AttributeNames.DB_NAME, this.constructor.collection.conn.name)
-        span.setAttribute(AttributeNames.DB_HOST, this.constructor.collection.conn.host)
-        span.setAttribute(AttributeNames.DB_PORT, this.constructor.collection.conn.port)
-        span.setAttribute(AttributeNames.DB_USER, this.constructor.collection.conn.user)
-
-        span.setAttribute(AttributeNames.COLLECTION_NAME, this.constructor.collection.name)
-
-        if (options instanceof Function) {
-          fn = options
-          options = undefined
-        }
-
-        if (fn instanceof Function) {
-          return originalRemove.apply(this, [options, (err: Error, product: any) => {
-            if (err) {
-              setErrorStatus(span, err)
-            }
-            span.end()
-            return fn!(err, product)
-          }])
-        } else {
-          return originalRemove.apply(this, arguments)
+          return originalOnModelFunction.apply(this, arguments)
             .catch(handleError(span))
             .finally(() => span.end() )
         }
