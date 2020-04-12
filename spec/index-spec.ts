@@ -639,5 +639,28 @@ describe("mongoose opentelemetry plugin", () => {
           })
       })
     })
+
+    it("instrumenting combined operation with async/await", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, async () => {
+        await User.find({id: "_test"}).skip(1).limit(2).sort({email: 'asc'})
+        // close the root span
+        span.end()
+
+        const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+        expect(spans.length).toBe(2)
+
+        // same traceId assertion
+        expect([...new Set(spans.map((span: ReadableSpan) => span.spanContext.traceId))].length).toBe(1)
+
+        assertSpan(spans[0])
+
+        expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+        expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
+
+        done()
+      })
+    })
   })
 });

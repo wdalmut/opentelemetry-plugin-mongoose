@@ -27,7 +27,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     thisPlugin._logger.debug('MongoosePlugin: patched mongoose query exec prototype');
     return (originalExec: Function) => {
       return function exec(this: any) {
-        let span = startSpan(thisPlugin._tracer, this.model.modelName, this.op);
+        const span = startSpan(thisPlugin._tracer, this.model.modelName, this.op);
 
         span.setAttribute(AttributeNames.COLLECTION_NAME, this.mongooseCollection.name)
 
@@ -60,7 +60,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     thisPlugin._logger.debug(`MongoosePlugin: patched mongoose ${op} prototype`);
     return (originalOnModelFunction: Function) => {
       return function method(this: any, options?: any, fn?: Function) {
-        let span = startSpan(thisPlugin._tracer, this.constructor.modelName, op);
+        const span = startSpan(thisPlugin._tracer, this.constructor.modelName, op);
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, op)
 
