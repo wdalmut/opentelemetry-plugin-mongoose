@@ -10,7 +10,6 @@ import mongoose from 'mongoose';
 
 const logger = new NoopLogger();
 const provider = new NodeTracerProvider();
-plugin.enable(mongoose, provider, logger);
 
 import User, { IUser } from './user'
 
@@ -76,6 +75,14 @@ describe("mongoose opentelemetry plugin", () => {
     const memoryExporter = new InMemorySpanExporter();
     const spanProcessor = new SimpleSpanProcessor(memoryExporter);
     provider.addSpanProcessor(spanProcessor);
+
+    beforeAll(() => {
+      plugin.enable(mongoose, provider, logger);
+    })
+
+    afterAll(() => {
+      plugin.disable();
+    })
 
     beforeEach(() => {
       memoryExporter.reset();
@@ -603,5 +610,67 @@ describe("mongoose opentelemetry plugin", () => {
           })
       })
     })
+  })
+
+  describe("Trace with enhancedDatabaseReporting", () => {
+    let contextManager: AsyncHooksContextManager;
+    const memoryExporter = new InMemorySpanExporter();
+    const spanProcessor = new SimpleSpanProcessor(memoryExporter);
+    provider.addSpanProcessor(spanProcessor);
+
+    beforeAll(() => {
+      plugin.enable(mongoose, provider, logger, { enhancedDatabaseReporting: true });
+    })
+
+    afterAll(() => {
+      plugin.disable();
+    })
+
+    beforeEach(() => {
+      memoryExporter.reset();
+      contextManager = new AsyncHooksContextManager().enable();
+      context.setGlobalContextManager(contextManager);
+    })
+
+    afterEach(() => {
+      contextManager.disable();
+    });
+
+    it(`Save operation traces save data`, async(done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        const payload = { firstName: 'John', lastName: 'Doe', email: "john.doe+1@example.com" };
+        User.create(payload)
+          .then((user) => {
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            expect(spans.length).toBe(1)
+            assertSpan(spans[0])
+
+            const saveData = JSON.parse(spans[0].attributes[AttributeNames.DB_SAVE] as string);
+            expect(saveData.firstName).toBe(payload.firstName);
+            expect(saveData.lastName).toBe(payload.lastName);
+            expect(saveData.email).toBe(payload.email);
+            expect(saveData._id).toBeDefined();
+
+            done()
+          })
+      });
+    });
+
+    it("find operation traces query response", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        User.find({})
+          .then((users) => {
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+            assertSpan(spans[0]);
+            expect(JSON.stringify(users)).toEqual(spans[0].attributes[AttributeNames.DB_RESPONSE] as string);
+
+            done()
+          })
+      })
+    })
+
   })
 });

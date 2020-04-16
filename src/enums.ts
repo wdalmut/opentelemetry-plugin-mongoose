@@ -10,6 +10,8 @@ export enum AttributeNames {
   DB_STATEMENT = 'db.statement',
   DB_OPTIONS = 'db.options',
   DB_UPDATE = 'db.updates',
+  DB_SAVE = 'db.save',
+  DB_RESPONSE = 'db.response',
   MONGO_ERROR_CODE = 'db.error_code',
   DB_MODEL = 'db.doc',
   DB_MODEL_NAME = 'mongoose.model',
