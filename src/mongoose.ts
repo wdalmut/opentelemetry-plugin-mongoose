@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 import { AttributeNames } from './enums'
 
-import { startSpan, handleError, setErrorStatus } from './utils'
+import { startSpan, handleError, setErrorStatus, safeStringify } from './utils'
 
 import { VERSION } from './version'
 
@@ -47,10 +47,16 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
           span.end()
           return queryResponse
         }
-
+        
         return queryResponse
+          .then(response => {
+            if (thisPlugin?._config?.enhancedDatabaseReporting) {
+              span.setAttribute(AttributeNames.DB_RESPONSE, safeStringify(response));
+            }
+            return response;
+          })
           .catch(handleError(span))
-          .finally(() => span.end() )
+          .finally(() => span.end())
       }
     }
   }
@@ -70,6 +76,10 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         span.setAttribute(AttributeNames.DB_USER, this.constructor.collection.conn.user)
 
         span.setAttribute(AttributeNames.COLLECTION_NAME, this.constructor.collection.name)
+
+        if (thisPlugin?._config?.enhancedDatabaseReporting) {
+          span.setAttribute(AttributeNames.DB_SAVE, safeStringify(this));
+        }
 
         if (options instanceof Function) {
           fn = options

@@ -38,3 +38,11 @@ export function setErrorStatus(span: Span, error: MongoError|Error): Span {
 
   return span
 }
+
+export function safeStringify(payload: any): string | null {
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return null;
+  }
+}
