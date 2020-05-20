@@ -9,7 +9,8 @@
     "build": "./node_modules/.bin/tsc",
     "watch": "npm run build -- -w",
     "coverage": "./node_modules/.bin/nyc npm test",
-    "report": "./node_modules/.bin/nyc report --reporter=text-lcov > coverage.lcov"
+    "report": "./node_modules/.bin/nyc report --reporter=text-lcov > coverage.lcov",
+    "postinstall": "npm run build"
   },
   "files": [
     "lib/**/*.js",
