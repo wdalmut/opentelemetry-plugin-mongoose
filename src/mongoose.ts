@@ -8,6 +8,24 @@ import { startSpan, handleError, setErrorStatus, safeStringify } from './utils'
 
 import { VERSION } from './version'
 
+const contextCaptureFunctions = [
+  'remove',
+  'deleteOne',
+  'deleteMany',
+  'find',
+  'findOne',
+  'estimatedDocumentCount',
+  'countDocuments',
+  'count',
+  'distinct',
+  'where',
+  '$where',
+  'findOneAndUpdate',
+  'findOneAndDelete',
+  'findOneAndReplace',
+  'findOneAndRemove',
+]
+
 export class MongoosePlugin extends BasePlugin<typeof mongoose> {
   constructor(readonly moduleName: string) {
     super('@wdalmut/opentelemetry-plugin-mongoose', VERSION);
@@ -19,6 +37,13 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     shimmer.wrap(this._moduleExports.Model.prototype, 'save', this.patchOnModelMethods('save'));
     shimmer.wrap(this._moduleExports.Model.prototype, 'remove', this.patchOnModelMethods('remove'));
     shimmer.wrap(this._moduleExports.Query.prototype, 'exec', this.patchQueryExec());
+
+    contextCaptureFunctions.forEach( (funcName: string) => {
+      shimmer.wrap(this._moduleExports.Query.prototype, funcName as any, this.patchAndCaptureSpanContext());
+    })
+
+    shimmer.wrap(this._moduleExports.Query.prototype, 'then', this.patchQueryThen());
+    
     return this._moduleExports;
   }
 
@@ -103,11 +128,45 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     }
   }
 
+  private patchAndCaptureSpanContext() {
+    const thisPlugin = this
+    thisPlugin._logger.debug('MongoosePlugin: patched mongoose query find prototype');
+    return (original: Function) => {
+      return function captureSpanContext(this: any) {
+        this._otContext = thisPlugin._tracer.getCurrentSpan();
+        return original.apply(this, arguments);
+      }
+    }
+  }
+
+  private patchQueryThen() {
+    const thisPlugin = this
+    thisPlugin._logger.debug('MongoosePlugin: patched mongoose query then prototype');
+    return (originalThen: Function) => {
+      return function patchedThen(this: any) {
+        if(this._otContext) {
+          return thisPlugin._tracer.withSpan(this._otContext, () => {
+            return originalThen.apply(this, arguments);
+          });  
+        }
+        else {
+          return originalThen.apply(this, arguments);
+        }
+      }
+    }
+  }
+
   protected unpatch(): void {
     this._logger.debug('MongoosePlugin: unpatch mongoose plugin');
-    shimmer.unwrap(this._moduleExports.Model.prototype, 'save')
-    shimmer.unwrap(this._moduleExports.Model.prototype, 'remove')
-    shimmer.unwrap(this._moduleExports.Query.prototype, 'exec')
+    shimmer.unwrap(this._moduleExports.Model.prototype, 'save');
+    shimmer.unwrap(this._moduleExports.Model.prototype, 'remove');
+    shimmer.unwrap(this._moduleExports.Query.prototype, 'exec');
+
+    contextCaptureFunctions.forEach( (funcName: string) => {
+      shimmer.unwrap(this._moduleExports.Query.prototype, funcName as any);
+    });
+
+    shimmer.unwrap(this._moduleExports.Query.prototype, 'then');
   }
 }
 

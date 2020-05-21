@@ -4,7 +4,7 @@ import { MongoosePlugin, plugin } from '../src';
 import { AttributeNames } from '../src/enums';
 import { NoopLogger } from '@opentelemetry/core';
 import { NodeTracerProvider } from '@opentelemetry/node';
-import { CanonicalCode } from '@opentelemetry/api';
+import { CanonicalCode, Span } from '@opentelemetry/api';
 
 import mongoose from 'mongoose';
 
@@ -610,6 +610,33 @@ describe("mongoose opentelemetry plugin", () => {
           })
       })
     })
+
+    it("await on mongoose thenable query object", async (done) => {
+      const initSpan: Span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(initSpan, async () => {
+
+        await User.findOne({id: "_test"});
+        
+        const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+        expect(spans.length).toBe(1);
+        const mongooseSpan: ReadableSpan = spans[0];
+
+        // validate the the mongoose span is the child of the span the initiated the call
+        expect(mongooseSpan.spanContext.traceId).toEqual(initSpan.context().traceId);
+        expect(mongooseSpan.parentSpanId).toEqual(initSpan.context().spanId);
+
+        assertSpan(mongooseSpan);
+        expect(mongooseSpan.attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+        expect(mongooseSpan.attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOne')
+
+        expect(mongooseSpan.attributes[AttributeNames.DB_STATEMENT]).toEqual('{"id":"_test"}')
+
+        expect(mongooseSpan.attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
+        done()
+      })
+    })
+    
   })
 
   describe("Trace with enhancedDatabaseReporting", () => {
