@@ -39,7 +39,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     shimmer.wrap(this._moduleExports.Query.prototype, 'exec', this.patchQueryExec());
 
     contextCaptureFunctions.forEach( (funcName: string) => {
-      shimmer.wrap(this._moduleExports.Query.prototype, funcName as any, this.patchAndCaptureSpanContext());
+      shimmer.wrap(this._moduleExports.Query.prototype, funcName as any, this.patchAndCaptureSpanContext(funcName));
     })
 
     shimmer.wrap(this._moduleExports.Query.prototype, 'then', this.patchQueryThen());
@@ -128,9 +128,9 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     }
   }
 
-  private patchAndCaptureSpanContext() {
+  private patchAndCaptureSpanContext(funcName: string) {
     const thisPlugin = this
-    thisPlugin._logger.debug('MongoosePlugin: patched mongoose query find prototype');
+    thisPlugin._logger.debug(`MongoosePlugin: patched mongoose query ${funcName} prototype`);
     return (original: Function) => {
       return function captureSpanContext(this: any) {
         this._otContext = thisPlugin._tracer.getCurrentSpan();
