@@ -4,7 +4,7 @@ import { MongoosePlugin, plugin } from '../src';
 import { AttributeNames } from '../src/enums';
 import { NoopLogger } from '@opentelemetry/core';
 import { NodeTracerProvider } from '@opentelemetry/node';
-import { CanonicalCode } from '@opentelemetry/api';
+import { CanonicalCode, Span } from '@opentelemetry/api';
 
 import mongoose from 'mongoose';
 
@@ -608,6 +608,91 @@ describe("mongoose opentelemetry plugin", () => {
 
             done()
           })
+      })
+    })
+
+    it("await on mongoose thenable query object", async (done) => {
+      const initSpan: Span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(initSpan, async () => {
+
+        await User.findOne({id: "_test"});
+
+        const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+        expect(spans.length).toBe(1);
+        const mongooseSpan: ReadableSpan = spans[0];
+
+        // validate the the mongoose span is the child of the span the initiated the call
+        expect(mongooseSpan.spanContext.traceId).toEqual(initSpan.context().traceId);
+        expect(mongooseSpan.parentSpanId).toEqual(initSpan.context().spanId);
+
+        assertSpan(mongooseSpan);
+        expect(mongooseSpan.attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+        expect(mongooseSpan.attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('findOne')
+
+        expect(mongooseSpan.attributes[AttributeNames.DB_STATEMENT]).toEqual('{"id":"_test"}')
+
+        expect(mongooseSpan.attributes[AttributeNames.COLLECTION_NAME]).toEqual('users')
+
+        done()
+      })
+    })
+
+    it("instrumenting combined operation with Promise.all", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, () => {
+        Promise.all([
+          User
+          .find({id: "_test"})
+          .skip(1)
+          .limit(2)
+          .sort({email: 'asc'}),
+          User.countDocuments()
+        ])
+          .then((users) => {
+            // close the root span
+            span.end()
+
+            const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+            // same traceId assertion
+            expect([...new Set(spans.map((span: ReadableSpan) => span.spanContext.traceId))].length).toBe(1)
+
+            expect(spans.length).toBe(3)
+
+            assertSpan(spans[0])
+            assertSpan(spans[1])
+
+            expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toMatch(/^(find|countDocuments)$/g)
+
+            expect(spans[1].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+            expect(spans[1].attributes[AttributeNames.DB_QUERY_TYPE]).toMatch(/^(find|countDocuments)$/g)
+
+            done()
+          })
+      })
+    })
+
+    it("instrumenting combined operation with async/await", async (done) => {
+      const span = provider.getTracer('default').startSpan('test span');
+      provider.getTracer('default').withSpan(span, async () => {
+        await User.find({id: "_test"}).skip(1).limit(2).sort({email: 'asc'})
+        // close the root span
+        span.end()
+
+        const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+        expect(spans.length).toBe(2)
+
+        // same traceId assertion
+        expect([...new Set(spans.map((span: ReadableSpan) => span.spanContext.traceId))].length).toBe(1)
+
+        assertSpan(spans[0])
+
+        expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual('User')
+        expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual('find')
+
+        done()
       })
     })
   })
