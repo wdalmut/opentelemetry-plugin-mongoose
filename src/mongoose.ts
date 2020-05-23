@@ -43,7 +43,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     })
 
     shimmer.wrap(this._moduleExports.Query.prototype, 'then', this.patchQueryThen());
-    
+
     return this._moduleExports;
   }
 
@@ -72,7 +72,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
           span.end()
           return queryResponse
         }
-        
+
         return queryResponse
           .then(response => {
             if (thisPlugin?._config?.enhancedDatabaseReporting) {
@@ -119,11 +119,11 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
             span.end()
             return fn!(err, product)
           }])
-        } else {
-          return originalOnModelFunction.apply(this, arguments)
-            .catch(handleError(span))
-            .finally(() => span.end() )
         }
+
+        return originalOnModelFunction.apply(this, arguments)
+          .catch(handleError(span))
+          .finally(() => span.end() )
       }
     }
   }
@@ -145,13 +145,10 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     return (originalThen: Function) => {
       return function patchedThen(this: any) {
         if(this._otContext) {
-          return thisPlugin._tracer.withSpan(this._otContext, () => {
-            return originalThen.apply(this, arguments);
-          });  
+          return thisPlugin._tracer.withSpan(this._otContext, () => originalThen.apply(this, arguments))
         }
-        else {
-          return originalThen.apply(this, arguments);
-        }
+
+        return originalThen.apply(this, arguments);
       }
     }
   }
