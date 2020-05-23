@@ -1,6 +1,6 @@
 {
   "name": "@wdalmut/opentelemetry-plugin-mongoose",
-  "version": "0.0.28",
+  "version": "0.1.0",
   "description": "OpenTelemetry mongoose automatic instrumentation package.",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
