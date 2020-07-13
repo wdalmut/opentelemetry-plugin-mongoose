@@ -611,7 +611,7 @@ describe("mongoose opentelemetry plugin", () => {
       })
     })
 
-    it("instrumenting aggregate operation", async (done) => {
+    it('instrumenting aggregate operation', async (done) => {
       const span = provider.getTracer("default").startSpan("test span");
       provider.getTracer("default").withSpan(span, () => {
         User.aggregate([
