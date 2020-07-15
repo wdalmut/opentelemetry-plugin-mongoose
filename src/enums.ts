@@ -16,4 +16,5 @@ export enum AttributeNames {
   DB_MODEL = 'db.doc',
   DB_MODEL_NAME = 'mongoose.model',
   DB_QUERY_TYPE = 'mongoose.query',
+  DB_AGGREGATE_PIPELINE = 'mongoose.db.aggregate_pipeline',
 }

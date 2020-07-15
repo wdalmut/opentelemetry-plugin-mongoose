@@ -611,6 +611,101 @@ describe("mongoose opentelemetry plugin", () => {
       })
     })
 
+    it('instrumenting aggregate operation', async (done) => {
+      const span = provider.getTracer("default").startSpan("test span");
+      provider.getTracer("default").withSpan(span, () => {
+        User.aggregate([
+          { $match: { firstName: "John"} },
+          { $group: { _id: "John", total: { $sum: "$amount" } } },
+        ]).then(() => {
+          const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+          assertSpan(spans[0]);
+          expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual(
+            "User"
+          );
+          expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual(
+            "aggregate"
+          );
+
+          expect(spans[0].attributes[AttributeNames.DB_AGGREGATE_PIPELINE]).toEqual(
+            '[{"$match":{"firstName":"John"}},{"$group":{"_id":"John","total":{"$sum":"$amount"}}}]'
+          );
+
+          expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual(
+            "users"
+          );
+
+          done();
+        });
+      });
+    });
+
+    it('instrumenting aggregate with callback', async (done) => {
+      const span = provider.getTracer("default").startSpan("test span");
+      provider.getTracer("default").withSpan(span, () => {
+        User.aggregate([
+          { $match: { firstName: "John"} },
+          { $group: { _id: "John", total: { $sum: "$amount" } } },
+        ], (error: Error|null, result: any) => {
+          expect(error).toBe(null);
+          expect(result).not.toBe(null);
+
+          const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+
+          assertSpan(spans[0]);
+          expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual(
+            "User"
+          );
+          expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual(
+            "aggregate"
+          );
+
+          expect(spans[0].attributes[AttributeNames.DB_AGGREGATE_PIPELINE]).toEqual(
+            '[{"$match":{"firstName":"John"}},{"$group":{"_id":"John","total":{"$sum":"$amount"}}}]'
+          );
+
+          expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual(
+            "users"
+          );
+
+          done();
+        });
+      });
+    });
+
+    it('instrumenting aggregate with await', async (done) => {
+      const span = provider.getTracer("default").startSpan("test span");
+      provider.getTracer("default").withSpan(span, async () => {
+        await User.aggregate([
+          { $match: { firstName: "John"} },
+          { $group: { _id: "John", total: { $sum: "$amount" } } },
+        ]);
+
+        const spans: ReadableSpan[] = memoryExporter.getFinishedSpans();
+        // check linked to parent span correctly
+        expect(spans[0].parentSpanId).toBe(span.context().spanId);
+        
+        assertSpan(spans[0]);
+        expect(spans[0].attributes[AttributeNames.DB_MODEL_NAME]).toEqual(
+          "User"
+        );
+        expect(spans[0].attributes[AttributeNames.DB_QUERY_TYPE]).toEqual(
+          "aggregate"
+        );
+
+        expect(spans[0].attributes[AttributeNames.DB_AGGREGATE_PIPELINE]).toEqual(
+          '[{"$match":{"firstName":"John"}},{"$group":{"_id":"John","total":{"$sum":"$amount"}}}]'
+        );
+
+        expect(spans[0].attributes[AttributeNames.COLLECTION_NAME]).toEqual(
+          "users"
+        );
+
+        done();
+      });
+    });
+
     it("await on mongoose thenable query object", async (done) => {
       const initSpan: Span = provider.getTracer('default').startSpan('test span');
       provider.getTracer('default').withSpan(initSpan, async () => {
