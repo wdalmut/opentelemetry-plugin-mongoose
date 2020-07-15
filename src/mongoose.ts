@@ -26,6 +26,11 @@ const contextCaptureFunctions = [
   'findOneAndRemove',
 ]
 
+// when mongoose functions are called, we store the original call context
+// and then set it as the parent for the spans created by Query/Aggregate exec()
+// calls. this bypass the unlinked spans issue on thenables await operations (issue #29)
+export const _STORED_PARENT_SPAN: unique symbol = Symbol('stored-parent-span');
+
 export class MongoosePlugin extends BasePlugin<typeof mongoose> {
   constructor(readonly moduleName: string) {
     super('@wdalmut/opentelemetry-plugin-mongoose', VERSION);
@@ -41,21 +46,19 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
     contextCaptureFunctions.forEach( (funcName: string) => {
       shimmer.wrap(this._moduleExports.Query.prototype, funcName as any, this.patchAndCaptureSpanContext(funcName));
-    })
-    shimmer.wrap(this._moduleExports.Model, 'aggregate' as any, this.patchModelAggregate());
+    });
+    shimmer.wrap(this._moduleExports.Model, 'aggregate', this.patchModelAggregate());
 
-    shimmer.wrap(this._moduleExports.Query.prototype, 'then', this.patchMongooseThen('Query'));
-    shimmer.wrap(this._moduleExports.Aggregate.prototype, 'then', this.patchMongooseThen('Aggregate'));
-    
     return this._moduleExports;
   }
 
   private patchAggregateExec() {
     const thisPlugin = this;
-    thisPlugin._logger.debug('MongoosePlugin: patched mongoose query exec prototype');
+    thisPlugin._logger.debug('MongoosePlugin: patched mongoose Aggregate exec prototype');
     return (originalExec: Function) => {
       return function exec(this: any) {
-        let span = startSpan(thisPlugin._tracer, this._model?.modelName, 'aggregate');
+        const parentSpan = this[_STORED_PARENT_SPAN];
+        let span = startSpan(thisPlugin._tracer, this._model?.modelName, 'aggregate', parentSpan);
         span.setAttributes(getAttributesFromCollection(this._model.collection));
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'aggregate');
         span.setAttribute(AttributeNames.DB_OPTIONS, JSON.stringify(this.options));
@@ -69,10 +72,11 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
   private patchQueryExec() {
     const thisPlugin = this
-    thisPlugin._logger.debug('MongoosePlugin: patched mongoose query exec prototype');
+    thisPlugin._logger.debug('MongoosePlugin: patched mongoose Query exec prototype');
     return (originalExec: Function) => {
       return function exec(this: any) {
-        let span = startSpan(thisPlugin._tracer, this.model.modelName, this.op);
+        const parentSpan = this[_STORED_PARENT_SPAN];
+        let span = startSpan(thisPlugin._tracer, this.model.modelName, this.op, parentSpan);
 
         span.setAttributes(getAttributesFromCollection(this.mongooseCollection));
 
@@ -89,7 +93,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
 
   private patchOnModelMethods(op: string) {
     const thisPlugin = this
-    thisPlugin._logger.debug(`MongoosePlugin: patched mongoose ${op} prototype`);
+    thisPlugin._logger.debug(`MongoosePlugin: patched mongoose Model ${op} prototype`);
     return (originalOnModelFunction: Function) => {
       return function method(this: any, options?: any, fn?: Function) {
         let span = startSpan(thisPlugin._tracer, this.constructor.modelName, op);
@@ -134,7 +138,7 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
       return function captureSpanContext(this: any) {
         const currentSpan = thisPlugin._tracer.getCurrentSpan();
         const aggregate = original.apply(this, arguments);
-        if(aggregate) aggregate._otContext = currentSpan;
+        if(aggregate) aggregate[_STORED_PARENT_SPAN] = currentSpan;
         return aggregate;
       }
     }
@@ -145,25 +149,8 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     thisPlugin._logger.debug(`MongoosePlugin: patched mongoose query ${funcName} prototype`);
     return (original: Function) => {
       return function captureSpanContext(this: any) {
-        this._otContext = thisPlugin._tracer.getCurrentSpan();
+        this[_STORED_PARENT_SPAN] = thisPlugin._tracer.getCurrentSpan();
         return original.apply(this, arguments);
-      }
-    }
-  }
-
-  private patchMongooseThen(patchedObject: string) {
-    const thisPlugin = this
-    thisPlugin._logger.debug(`MongoosePlugin: patched ${patchedObject} then prototype`);
-    return (originalThen: Function) => {
-      return function patchedThen(this: any) {
-        if(this._otContext) {
-          return thisPlugin._tracer.withSpan(this._otContext, () => {
-            return originalThen.apply(this, arguments);
-          });  
-        }
-        else {
-          return originalThen.apply(this, arguments);
-        }
       }
     }
   }
@@ -177,8 +164,8 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
     contextCaptureFunctions.forEach( (funcName: string) => {
       shimmer.unwrap(this._moduleExports.Query.prototype, funcName as any);
     });
+    shimmer.unwrap(this._moduleExports.Model, 'aggregate');
 
-    shimmer.unwrap(this._moduleExports.Query.prototype, 'then');
   }
 }
 
