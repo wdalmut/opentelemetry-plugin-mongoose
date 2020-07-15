@@ -3,7 +3,7 @@ import { CanonicalCode, Span, SpanKind } from '@opentelemetry/api';
 import { MongoError } from 'mongodb'
 import { AttributeNames } from './enums';
 
-export function startSpan(tracer: Tracer, name: string, op: string): Span {
+export function startSpan(tracer: Tracer, name: string, op: string, parentSpan?: Span): Span {
   return tracer.startSpan(`mongoose.${name}.${op}`, {
     kind: SpanKind.CLIENT,
     attributes: {
@@ -11,6 +11,7 @@ export function startSpan(tracer: Tracer, name: string, op: string): Span {
       [AttributeNames.DB_TYPE]: 'nosql',
       [AttributeNames.COMPONENT]: 'mongoose',
     },
+    parent: parentSpan
   })
 }
 
