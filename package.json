@@ -5,12 +5,11 @@
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
   "scripts": {
-    "test": "node --no-deprecation ./node_modules/jasmine/bin/jasmine.js",
+    "test": "jasmine-ts --config=jasmine.json",
     "build": "./node_modules/.bin/tsc",
     "watch": "npm run build -- -w",
     "coverage": "./node_modules/.bin/nyc npm test",
-    "report": "./node_modules/.bin/nyc report --reporter=text-lcov > coverage.lcov",
-    "postinstall": "npm run build"
+    "report": "./node_modules/.bin/nyc report --reporter=text-lcov > coverage.lcov"
   },
   "files": [
     "lib/**/*.js",
@@ -49,8 +48,11 @@
     "@types/mongoose": "^5.7.8",
     "@types/shimmer": "^1.0.1",
     "jasmine": "^3.5.0",
+    "jasmine-spec-reporter": "^5.0.2",
+    "jasmine-ts": "^0.3.0",
     "mongoose": "^5.9.7",
     "nyc": "^15.0.1",
+    "ts-node": "^8.10.2",
     "typescript": "^3.8.3"
   }
 }
