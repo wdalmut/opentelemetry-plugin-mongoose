@@ -61,8 +61,8 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         let span = startSpan(thisPlugin._tracer, this._model?.modelName, 'aggregate', parentSpan);
         span.setAttributes(getAttributesFromCollection(this._model.collection));
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, 'aggregate');
-        span.setAttribute(AttributeNames.DB_OPTIONS, JSON.stringify(this.options));
-        span.setAttribute(AttributeNames.DB_AGGREGATE_PIPELINE, JSON.stringify(this._pipeline));
+        span.setAttribute(AttributeNames.DB_OPTIONS, safeStringify(this.options));
+        span.setAttribute(AttributeNames.DB_AGGREGATE_PIPELINE, safeStringify(this._pipeline));
         
         const aggregateResponse = originalExec.apply(this, arguments);
         return handleExecResponse(aggregateResponse, span, thisPlugin?._config?.enhancedDatabaseReporting);
@@ -81,9 +81,9 @@ export class MongoosePlugin extends BasePlugin<typeof mongoose> {
         span.setAttributes(getAttributesFromCollection(this.mongooseCollection));
 
         span.setAttribute(AttributeNames.DB_QUERY_TYPE, this.op)
-        span.setAttribute(AttributeNames.DB_STATEMENT, JSON.stringify(this._conditions))
-        span.setAttribute(AttributeNames.DB_OPTIONS, JSON.stringify(this.options))
-        span.setAttribute(AttributeNames.DB_UPDATE, JSON.stringify(this._update))
+        span.setAttribute(AttributeNames.DB_STATEMENT, safeStringify(this._conditions))
+        span.setAttribute(AttributeNames.DB_OPTIONS, safeStringify(this.options))
+        span.setAttribute(AttributeNames.DB_UPDATE, safeStringify(this._update))
 
         const queryResponse = originalExec.apply(this, arguments)
         return handleExecResponse(queryResponse, span, thisPlugin?._config?.enhancedDatabaseReporting);
